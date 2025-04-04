@@ -57,24 +57,25 @@ const UserModel = mongoose.model("User", schema);
 
 const generateFormObjectFromTraversalMongooseSchema = (schema) => {
     return Object.keys(schema.paths).reduce((acc, key) => {
-      const path = schema.paths[key];
-      if (path.schema) {
-        acc[key] = {
+			const path = schema.paths[key];
+			if (path.schema) {
+				acc[key] = {
 					instance: path.instance,
 					schema: generateFormObjectFromTraversalMongooseSchema(path.schema),
+					options: path.options,
 				};
-      } else {
-        acc[key] = {
-          instance: path.instance,
-          options: {
-            required: path.options.required,
-            unique: path.options.unique,
-            default: path.defaultValue,
-          }
-        };
-      }
-      return acc;
-    }, {});
+			} else {
+				acc[key] = {
+					instance: path.instance,
+					options: {
+						...path.options,
+						default: path.defaultValue,
+						enum: path.enumValues,
+					},
+				};
+			}
+			return acc;
+		}, {});
 
 }
 
