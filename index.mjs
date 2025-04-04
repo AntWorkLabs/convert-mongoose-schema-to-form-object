@@ -62,7 +62,6 @@ const generateFormObjectFromTraversalMongooseSchema = (schema) => {
 				acc[key] = {
 					instance: path.instance,
 					schema: generateFormObjectFromTraversalMongooseSchema(path.schema),
-					options: path.options,
 				};
 			} else {
 				acc[key] = {
