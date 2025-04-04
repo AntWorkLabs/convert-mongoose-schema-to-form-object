@@ -68,7 +68,6 @@ const generateFormObjectFromTraversalMongooseSchema = (schema) => {
 					instance: path.instance,
 					options: {
 						...path.options,
-						default: path.defaultValue,
 						enum: path.enumValues,
 					},
 				};
