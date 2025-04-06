@@ -28,10 +28,11 @@ const itemSchema = new mongoose.Schema({
 /**
  * @type {mongoose.Schema}
  */
-const schema = new mongoose.Schema({
+const UserSchema = new mongoose.Schema({
 	name: {
 		type: String,
 		required: true,
+    description: "Name of the user",
 	},
   onBoarding: {
     type: Boolean,
@@ -57,7 +58,30 @@ const schema = new mongoose.Schema({
 	},
 });
 
-const UserModel = mongoose.model("User", schema);
+const ProductSchema = new mongoose.Schema({
+  name: {
+    type: String,
+    required: true,
+
+  },
+  price: {
+    type: Number,
+    required: true,
+  },
+});
+
+const InventorySchema = new mongoose.Schema({
+  name: {
+    type: String,
+    required: true,
+  },
+  products: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Product",
+  }],
+}, {timestamps: true});
+
+const ignoredkeys = ["createdAt", "updatedAt", "__v"];
 
 const generateFormObjectFromTraversalMongooseSchema = (schema) => {
 	return Object.keys(schema.paths).reduce((acc, key) => {
@@ -68,6 +92,9 @@ const generateFormObjectFromTraversalMongooseSchema = (schema) => {
 				schema: generateFormObjectFromTraversalMongooseSchema(path.schema),
 			};
 		} else {
+      if (ignoredkeys.includes(key)) {
+				return acc;
+			}
 			acc[key] = {
 				instance: path.instance,
 				options: {
@@ -94,28 +121,85 @@ app.listen(3000, () => {
 	main();
 });
 
-app.get("/api/schema/user", async (req, res) => {
-	res.json(generateFormObjectFromTraversalMongooseSchema(UserModel.schema));
+const schemaMap = new Map([
+  ["user", UserSchema],
+  ["product", ProductSchema],
+  ["inventory", InventorySchema],
+]);
+
+app.get("/api/schema", async (req, res) => {
+  const schemas = Array.from(schemaMap.keys()).map((key) => ({
+    name: key,
+  }));
+  res.json(schemas);
 });
 
-app.post("/api/user", async (req, res) => {
-	const user = new UserModel(req.body);
-	await user.save();
-	res.json(user);
+app.get("/api/schema/:schemaName", async (req, res) => {
+	const schemaName = req.params.schemaName;
+  if (!schemaMap.has(schemaName)) {
+    return res.status(404).json({ error: "Schema not found" });
+  }
+  const schema = schemaMap.get(schemaName);
+  const formObject = generateFormObjectFromTraversalMongooseSchema(schema);
+  res.json(formObject);
 });
-app.get("/api/user", async (req, res) => {
-	const users = await UserModel.find();
-	res.json(users);
+
+app.post("/api/:schemaName", async (req, res) => {
+  const schemaName = req.params.schemaName;
+  if (!schemaMap.has(schemaName)) {
+    return res.status(404).json({ error: "Schema not found" });
+  }
+  const Model = mongoose.model(schemaName, schemaMap.get(schemaName));
+  const document = new Model(req.body);
+  await document.save();
+  res.json(document);
 });
-app.put("/api/user/:id", async (req, res) => {
-  const user = await UserModel.findByIdAndUpdate(
-    req.params.id,
-    req.body,
-    { new: true }
-  );
-  res.json(user);
+app.get("/api/:schemaName", async (req, res) => {
+  const schemaName = req.params.schemaName;
+  if (!schemaMap.has(schemaName)) {
+    return res.status(404).json({ error: "Schema not found" });
+  }
+  const Model = mongoose.model(schemaName, schemaMap.get(schemaName));
+  const documents = await Model.find();
+  res.json(documents);
 });
-app.get("/api/user/:id", async (req, res) => {
-	const user = await UserModel.findById(req.params.id);
-	res.json(user);
-});
+app.get("/api/:schemaName/:id", async (req, res) => {
+  const schemaName = req.params.schemaName;
+  if (!schemaMap.has(schemaName)) {
+    return res.status(404).json({ error: "Schema not found" });
+  }
+  const Model = mongoose.model(schemaName, schemaMap.get(schemaName));
+  const document = await Model.findById(req.params.id);
+  if (!document) {
+    return res.status(404).json({ error: "Document not found" });
+  }
+  res.json(document);
+})
+app.put("/api/:schemaName/:id", async (req, res) => {
+  const schemaName = req.params.schemaName;
+  if (!schemaMap.has(schemaName)) {
+    return res.status(404).json({ error: "Schema not found" });
+  }
+  const Model = mongoose.model(schemaName, schemaMap.get(schemaName));
+  const document = await Model.findByIdAndUpdate(req.params.id, req.body, { new: true });
+  if (!document) {
+    return res.status(404).json({ error: "Document not found" });
+  }
+  res.json(document);
+})
+
+app.delete("/api/:schemaName/:id", async (req, res) => {
+  const schemaName = req.params.schemaName;
+  if (!schemaMap.has(schemaName)) {
+    return res.status(404).json({ error: "Schema not found" });
+  }
+  const Model = mongoose.model(schemaName, schemaMap.get(schemaName));
+  console.log(req.params.id);
+  const document = await Model.findByIdAndDelete(req.params.id);
+  if (!document) {
+    return res.status(404).json({ error: "Document not found" });
+  }
+  res.json(document);
+})
+
+
